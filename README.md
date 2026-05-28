@@ -5,10 +5,11 @@ Streamlit + Supabase dashboard for registering YOLO computer vision models, vali
 ## Setup
 
 1. Create a Python environment.
-2. Install dependencies:
+2. Install dependencies: (Use Python 3.12)
 
 ```bash
 python -m pip install -r requirements.txt
+
 ```
 
 3. Fill in Supabase credentials at `secrets/.env-example`.
