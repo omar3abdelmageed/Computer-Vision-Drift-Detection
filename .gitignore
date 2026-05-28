@@ -1,12 +1,23 @@
-# Virtual environments
-venv/
-env/
-.env
+# Local secrets
+secrets/.env
+secrets/*.env
+secrets/*.toml
+.streamlit/secrets.toml
 
-# Python cache files
+# Local runtime files
+data/
+workspace/
+cv_drift_dashboard/workspace_storage/
+tmp/
+*.db
+
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Streamlit
-.streamlit/secrets.toml
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+cv_monitoring_system_design.md
+database.md

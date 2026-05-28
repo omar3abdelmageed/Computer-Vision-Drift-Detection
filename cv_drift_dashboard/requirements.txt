@@ -1,9 +1,0 @@
- streamlit>=1.32.0
-supabase>=2.3.0
-torch
-torchvision
-alibi-detect
-scipy
-plotly
-Pillow
-imagecodecs
