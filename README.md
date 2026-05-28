@@ -11,7 +11,7 @@ Streamlit + Supabase dashboard for registering YOLO computer vision models, vali
 python -m pip install -r requirements.txt
 ```
 
-3. Copy `secrets/.env.example` to `secrets/.env` and fill in Supabase credentials.
+3. Fill in Supabase credentials at `secrets/.env-example`.
 4. Apply the schema migrations in `supabase/migrations/` in order.
 5. Make large datasets and YOLO `.pt` artifacts available on the machine running the app. Set `LOCAL_WORKSPACE_DIR` if you want local runtime outputs somewhere other than `workspace/`.
 6. Run the app:
