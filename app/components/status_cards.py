@@ -7,7 +7,7 @@ def status_card(title: str, status: str | None, detail: str = "") -> None:
     status = status or "pending"
     if status in {"valid", "ok", "completed", "baseline_completed"}:
         st.success(f"{title}: {status}. {detail}")
-    elif status in {"warning", "running", "not_started", "draft", "pending", "uploaded"}:
+    elif status in {"warning", "running", "not_started", "draft", "pending", "uploaded", "registered"}:
         st.warning(f"{title}: {status}. {detail}")
     elif status in {"invalid", "failed", "critical"}:
         st.error(f"{title}: {status}. {detail}")

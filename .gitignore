@@ -7,7 +7,6 @@ secrets/*.toml
 # Local runtime files
 data/
 workspace/
-cv_drift_dashboard/workspace_storage/
 tmp/
 *.db
 
@@ -19,5 +18,5 @@ __pycache__/
 htmlcov/
 .venv/
 venv/
-cv_monitoring_system_design.md
-database.md
+
+

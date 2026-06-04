@@ -136,7 +136,7 @@ def render_task_type(models: SupabaseRepository, selected_model: dict) -> str:
                 "detected_task_type": None,
                 "task_validation_status": "pending",
                 "baseline_status": "not_started",
-                "registration_status": "task_type_changed",
+                "registration_status": "draft",
             },
         )
         st.rerun()
@@ -150,7 +150,7 @@ def render_dataset_registration(datasets: SupabaseRepository, models: SupabaseRe
     st.subheader("3. Dataset Registration")
     dataset_record = datasets.latest_where(model_id=model_id)
     with st.form("register_dataset_path"):
-        dataset_path = st.text_input("YOLO dataset directory")
+        dataset_path = st.text_input("Local YOLO dataset directory")
         submitted = st.form_submit_button("Register dataset")
     if submitted:
         try:
@@ -171,7 +171,7 @@ def render_dataset_registration(datasets: SupabaseRepository, models: SupabaseRe
         st.success("Dataset registered.")
         st.rerun()
     if dataset_record:
-        status_card("Dataset", dataset_record.get("validation_status") or "uploaded", dataset_record.get("dataset_root_path") or "")
+        status_card("Dataset", dataset_record.get("validation_status") or "registered", dataset_record.get("dataset_root_path") or "")
     return dataset_record
 
 
@@ -179,7 +179,7 @@ def render_model_registration(artifacts: SupabaseRepository, models: SupabaseRep
     st.subheader("4. Model Registration")
     artifact_record = artifacts.latest_where(model_id=model_id)
     with st.form("register_model_path"):
-        artifact_path = st.text_input("YOLO .pt artifact path")
+        artifact_path = st.text_input("Local YOLO .pt artifact path")
         submitted = st.form_submit_button("Register model")
     if submitted:
         try:
@@ -207,7 +207,7 @@ def render_model_registration(artifacts: SupabaseRepository, models: SupabaseRep
         st.success("Model artifact registered.")
         st.rerun()
     if artifact_record:
-        status_card("Artifact", artifact_record.get("compatibility_status") or "uploaded", artifact_record.get("artifact_name") or "")
+        status_card("Artifact", artifact_record.get("compatibility_status") or "registered", artifact_record.get("artifact_name") or "")
         with st.expander("Raw artifact metadata"):
             st.json(artifact_record.get("raw_metadata") or {})
     return artifact_record
@@ -325,7 +325,11 @@ def render_baseline_builder(
     if st.button("Build baseline", disabled=not enabled):
         models.update(selected_model["id"], {"baseline_status": "running", "registration_status": "baseline_running"})
         try:
-            profile = build_baseline_profile(dataset_metadata)
+            profile = build_baseline_profile(
+                dataset_metadata,
+                Path(artifact_record["local_path"]) if artifact_record and artifact_record.get("local_path") else None,
+                selected_model.get("selected_task_type"),
+            )
             save_baseline_profiles(baselines, selected_model["id"], dataset_record["id"], artifact_record["id"], profile)
             models.update(selected_model["id"], {"baseline_status": "completed", "registration_status": "baseline_completed"})
             st.success("Baseline completed.")

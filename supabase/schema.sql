@@ -1,3 +1,5 @@
+-- Consolidated Supabase schema snapshot.
+
 create extension if not exists "pgcrypto";
 
 create table if not exists models (
@@ -21,6 +23,8 @@ create index if not exists idx_models_baseline_status on models(baseline_status)
 create table if not exists datasets (
   id uuid primary key default gen_random_uuid(),
   model_id uuid not null references models(id) on delete cascade,
+  storage_backend text not null default 'local' check (storage_backend in ('local', 'supabase')),
+  source_uri text,
   storage_path text,
   dataset_root_path text,
   dataset_type text check (dataset_type in ('yolo_detection', 'yolo_classification')),
@@ -69,7 +73,9 @@ create index if not exists idx_dataset_paths_split on dataset_paths(split);
 create table if not exists model_artifacts (
   id uuid primary key default gen_random_uuid(),
   model_id uuid not null references models(id) on delete cascade,
-  storage_path text not null,
+  storage_backend text not null default 'local' check (storage_backend in ('local', 'supabase')),
+  source_uri text,
+  storage_path text,
   local_path text,
   artifact_name text not null default 'best.pt',
   artifact_type text not null default 'yolo_pt' check (artifact_type in ('yolo_pt', 'onnx', 'torchscript', 'other')),
@@ -88,11 +94,49 @@ create table if not exists model_artifacts (
 create index if not exists idx_model_artifacts_model_id on model_artifacts(model_id);
 create index if not exists idx_model_artifacts_compatibility_status on model_artifacts(compatibility_status);
 
+create table if not exists production_sources (
+  id uuid primary key default gen_random_uuid(),
+  model_id uuid not null references models(id) on delete cascade,
+  source_type text not null check (source_type in ('test_folder', 'manual_upload', 'watched_folder', 'supabase_bucket', 'rtsp', 'usb_camera')),
+  source_uri text,
+  label_uri text,
+  mode text not null check (mode in ('initial_evaluation', 'live_monitoring', 'manual_batch')),
+  polling_interval_seconds int default 30,
+  is_active boolean default true,
+  config jsonb default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_production_sources_model_id on production_sources(model_id);
+create index if not exists idx_production_sources_source_type on production_sources(source_type);
+create index if not exists idx_production_sources_is_active on production_sources(is_active);
+
+create table if not exists monitoring_sessions (
+  id uuid primary key default gen_random_uuid(),
+  model_id uuid not null references models(id) on delete cascade,
+  artifact_id uuid references model_artifacts(id) on delete set null,
+  source_id uuid references production_sources(id) on delete set null,
+  source_type text check (source_type in ('test_folder', 'manual_upload', 'watched_folder', 'supabase_bucket', 'rtsp', 'usb_camera')),
+  name text,
+  status text not null default 'created' check (status in ('created', 'waiting_for_live_data', 'running_test_evaluation', 'running_live_monitoring', 'paused', 'completed', 'failed')),
+  summary jsonb default '{}'::jsonb,
+  started_at timestamptz default now(),
+  ended_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_monitoring_sessions_model_id on monitoring_sessions(model_id);
+create index if not exists idx_monitoring_sessions_artifact_id on monitoring_sessions(artifact_id);
+create index if not exists idx_monitoring_sessions_source_id on monitoring_sessions(source_id);
+create index if not exists idx_monitoring_sessions_status on monitoring_sessions(status);
+
 create table if not exists images (
   id uuid primary key default gen_random_uuid(),
   model_id uuid not null references models(id) on delete cascade,
   dataset_id uuid references datasets(id) on delete set null,
-  session_id uuid,
+  session_id uuid references monitoring_sessions(id) on delete set null,
   source text check (source in ('train', 'val', 'test', 'production', 'manual_upload', 'watched_folder', 'camera', 'supabase_bucket')),
   split text check (split in ('train', 'val', 'test', 'production')),
   storage_path text,
@@ -115,8 +159,7 @@ create table if not exists images (
   saturation_std float,
   edge_density float,
   feature_payload jsonb default '{}'::jsonb,
-  created_at timestamptz default now(),
-  unique(model_id, content_hash)
+  created_at timestamptz default now()
 );
 
 create index if not exists idx_images_model_id on images(model_id);
@@ -125,6 +168,10 @@ create index if not exists idx_images_session_id on images(session_id);
 create index if not exists idx_images_source on images(source);
 create index if not exists idx_images_split on images(split);
 create index if not exists idx_images_content_hash on images(content_hash);
+
+create unique index if not exists idx_images_model_session_content_hash
+on images(model_id, session_id, content_hash)
+where session_id is not null and content_hash is not null;
 
 create table if not exists ground_truth_labels (
   id uuid primary key default gen_random_uuid(),
@@ -174,7 +221,18 @@ create table if not exists baseline_profiles (
   model_id uuid not null references models(id) on delete cascade,
   artifact_id uuid references model_artifacts(id) on delete set null,
   dataset_id uuid references datasets(id) on delete set null,
-  profile_type text not null check (profile_type in ('dataset_profile', 'image_stats', 'embeddings', 'predictions', 'performance', 'object_distribution', 'class_distribution')),
+  profile_type text not null check (
+    profile_type in (
+      'dataset_profile',
+      'image_stats',
+      'feature_rows',
+      'embeddings',
+      'predictions',
+      'performance',
+      'object_distribution',
+      'class_distribution'
+    )
+  ),
   metrics jsonb not null default '{}'::jsonb,
   created_at timestamptz default now()
 );
@@ -183,45 +241,6 @@ create index if not exists idx_baseline_profiles_model_id on baseline_profiles(m
 create index if not exists idx_baseline_profiles_artifact_id on baseline_profiles(artifact_id);
 create index if not exists idx_baseline_profiles_dataset_id on baseline_profiles(dataset_id);
 create index if not exists idx_baseline_profiles_profile_type on baseline_profiles(profile_type);
-
-create table if not exists production_sources (
-  id uuid primary key default gen_random_uuid(),
-  model_id uuid not null references models(id) on delete cascade,
-  source_type text not null check (source_type in ('test_folder', 'manual_upload', 'watched_folder', 'supabase_bucket', 'rtsp', 'usb_camera')),
-  source_uri text,
-  label_uri text,
-  mode text not null check (mode in ('initial_evaluation', 'live_monitoring', 'manual_batch')),
-  polling_interval_seconds int default 30,
-  is_active boolean default true,
-  config jsonb default '{}'::jsonb,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
-create index if not exists idx_production_sources_model_id on production_sources(model_id);
-create index if not exists idx_production_sources_source_type on production_sources(source_type);
-create index if not exists idx_production_sources_is_active on production_sources(is_active);
-
-create table if not exists monitoring_sessions (
-  id uuid primary key default gen_random_uuid(),
-  model_id uuid not null references models(id) on delete cascade,
-  artifact_id uuid references model_artifacts(id) on delete set null,
-  source_id uuid references production_sources(id) on delete set null,
-  source_type text check (source_type in ('test_folder', 'manual_upload', 'watched_folder', 'supabase_bucket', 'rtsp', 'usb_camera')),
-  status text not null default 'created' check (status in ('created', 'waiting_for_live_data', 'running_test_evaluation', 'running_live_monitoring', 'paused', 'completed', 'failed')),
-  started_at timestamptz default now(),
-  ended_at timestamptz,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
-create index if not exists idx_monitoring_sessions_model_id on monitoring_sessions(model_id);
-create index if not exists idx_monitoring_sessions_artifact_id on monitoring_sessions(artifact_id);
-create index if not exists idx_monitoring_sessions_source_id on monitoring_sessions(source_id);
-create index if not exists idx_monitoring_sessions_status on monitoring_sessions(status);
-
-alter table images drop constraint if exists fk_images_session_id;
-alter table images add constraint fk_images_session_id foreign key (session_id) references monitoring_sessions(id) on delete set null;
 
 create table if not exists drift_results (
   id uuid primary key default gen_random_uuid(),
@@ -288,11 +307,15 @@ $$ language plpgsql;
 
 drop trigger if exists trg_models_updated_at on models;
 create trigger trg_models_updated_at before update on models for each row execute function set_updated_at();
+
 drop trigger if exists trg_datasets_updated_at on datasets;
 create trigger trg_datasets_updated_at before update on datasets for each row execute function set_updated_at();
+
 drop trigger if exists trg_model_artifacts_updated_at on model_artifacts;
 create trigger trg_model_artifacts_updated_at before update on model_artifacts for each row execute function set_updated_at();
+
 drop trigger if exists trg_production_sources_updated_at on production_sources;
 create trigger trg_production_sources_updated_at before update on production_sources for each row execute function set_updated_at();
+
 drop trigger if exists trg_monitoring_sessions_updated_at on monitoring_sessions;
 create trigger trg_monitoring_sessions_updated_at before update on monitoring_sessions for each row execute function set_updated_at();

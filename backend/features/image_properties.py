@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from backend.common import ImageFeatures, ImageMetadata, SplitName
+from backend.drift.industrial_metrics import colorfulness_from_rgb_channel_stats
 from backend.utils.hashing import file_sha256
 
 
@@ -45,8 +46,11 @@ def extract_image_features(path: Path) -> ImageFeatures:
     stat = ImageStat.Stat(image)
     rgb_means = [float(v / 255.0) for v in stat.mean]
     rgb_stds = [float(v / 255.0) for v in stat.stddev]
+    colorfulness = colorfulness_from_rgb_channel_stats(rgb_means, rgb_stds)
     edges = gray.filter(ImageFilter.FIND_EDGES)
     edge_density = float((np.asarray(edges) > 25).mean())
+    blurred = gray.filter(ImageFilter.GaussianBlur(radius=1))
+    noise_level = float(np.abs(gray_arr - (np.asarray(blurred).astype("float32") / 255.0)).mean())
     saturation = arr.max(axis=2) - arr.min(axis=2)
     embedding = [
         float(gray_arr.mean()),
@@ -55,6 +59,8 @@ def extract_image_features(path: Path) -> ImageFeatures:
         float(saturation.mean()),
         float(saturation.std()),
         edge_density,
+        noise_level,
+        colorfulness,
         *rgb_means,
         *rgb_stds,
     ]
@@ -69,4 +75,6 @@ def extract_image_features(path: Path) -> ImageFeatures:
         rgb_channel_means=rgb_means,
         rgb_channel_stds=rgb_stds,
         embedding=embedding,
+        noise_level=noise_level,
+        colorfulness=colorfulness,
     )

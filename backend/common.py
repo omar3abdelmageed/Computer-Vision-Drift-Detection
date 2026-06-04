@@ -175,6 +175,8 @@ class ImageFeatures:
     rgb_channel_means: list[float]
     rgb_channel_stds: list[float]
     embedding: Optional[list[float]] = None
+    noise_level: float = 0.0
+    colorfulness: float = 0.0
 
 
 @dataclass
@@ -197,7 +199,7 @@ class ClassificationLabel:
 class DriftResult:
     drift_type: DriftType
     metric_name: str
-    metric_value: float
+    metric_value: Optional[float]
     threshold: float
     status: DriftStatus
     details: dict[str, Any] = field(default_factory=dict)

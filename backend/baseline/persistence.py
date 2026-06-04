@@ -5,7 +5,7 @@ from typing import Any
 from backend.database.repositories import SupabaseRepository
 
 
-BASELINE_PROFILE_TYPES = ("dataset_profile", "image_stats", "feature_rows", "class_distribution")
+BASELINE_PROFILE_TYPES = ("dataset_profile", "image_stats", "feature_rows", "class_distribution", "predictions")
 
 
 def save_baseline_profiles(
