@@ -1,0 +1,33 @@
+# Local secrets
+secrets/.env
+secrets/*.env
+.streamlit/secrets.toml
+
+# Local runtime files
+data/
+workspace/
+tmp/
+logs/
+*.db
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Model artifacts
+*.pt
+*.onnx
+*.torchscript
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest_cache_tmp/
+.pytest_tmp/
+.coverage
+htmlcov/
+build/
+dist/
+.venv/
+venv/
+

@@ -1,0 +1,21 @@
+[global]
+developmentMode = false
+
+[client]
+showErrorDetails = "none"
+toolbarMode = "minimal"
+showErrorLinks = false
+
+[server]
+address = "127.0.0.1"
+headless = true
+enableCORS = true
+enableXsrfProtection = true
+fileWatcherType = "none"
+enableStaticServing = false
+maxUploadSize = 100
+maxMessageSize = 100
+
+[browser]
+serverAddress = "127.0.0.1"
+gatherUsageStats = false

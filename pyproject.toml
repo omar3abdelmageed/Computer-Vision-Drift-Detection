@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cv-monitor"
+version = "0.1.0"
+description = "Trusted-local computer vision model monitoring desktop app"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "streamlit==1.58.0",
+  "ultralytics==8.4.67",
+  "Pillow==12.2.0",
+  "numpy==2.4.6",
+  "pandas==3.0.3",
+  "scipy==1.17.1",
+  "PyYAML==6.0.3",
+  "altair==6.2.1",
+  "psutil==7.2.2",
+]
+
+[project.optional-dependencies]
+desktop = ["pywebview==6.2.1"]
+build = ["PyInstaller==6.21.0"]
+test = ["pytest==9.1.0", "pytest-cov==7.1.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".git", ".pytest_cache", ".pytest_tmp", "build", "dist", "tmp", "venv"]
