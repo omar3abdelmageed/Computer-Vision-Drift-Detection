@@ -272,7 +272,7 @@ def test_source_image_stride_reads_source_config():
     assert session_manager.source_image_stride({"config": {"image_stride": "bad"}}) == 1
 
 
-def test_process_source_once_uses_every_nth_ready_image(monkeypatch, tmp_path):
+def test_process_source_once_samples_before_readiness_checks(monkeypatch, tmp_path):
     image_paths = [tmp_path / f"image-{index}.jpg" for index in range(1, 6)]
     for image_path in image_paths:
         make_image(image_path)
@@ -302,7 +302,14 @@ def test_process_source_once_uses_every_nth_ready_image(monkeypatch, tmp_path):
             return row
 
     monkeypatch.setattr(session_manager, "Repository", FakeRepository)
-    monkeypatch.setattr(session_manager, "scan_image_readiness", lambda path: {"ready": image_paths, "total": len(image_paths), "skipped_unready": 0})
+    checked_paths = []
+    monkeypatch.setattr(session_manager, "scan_images", lambda path: image_paths)
+
+    def fake_readiness(paths):
+        checked_paths.extend(paths)
+        return {"ready": paths, "total": len(paths), "skipped_unready": 0}
+
+    monkeypatch.setattr(session_manager, "scan_image_readiness", fake_readiness)
     monkeypatch.setattr(
         session_manager,
         "extract_image_metadata",
@@ -324,8 +331,9 @@ def test_process_source_once_uses_every_nth_ready_image(monkeypatch, tmp_path):
     )
 
     assert summary["processed"] == 3
-    assert summary["ready_files"] == 5
+    assert summary["ready_files"] == 3
     assert summary["skipped_by_stride"] == 2
+    assert checked_paths == [image_paths[0], image_paths[2], image_paths[4]]
     assert [row["filename"] for row in stores["images"]] == ["image-1.jpg", "image-3.jpg", "image-5.jpg"]
 
 
@@ -351,6 +359,19 @@ def test_scan_ready_images_skips_files_that_change_during_stability_check(monkey
 
     assert summary["ready"] == []
     assert summary["skipped_unready"] == 1
+
+
+def test_scan_image_readiness_waits_once_for_a_batch(monkeypatch, tmp_path):
+    image_paths = [tmp_path / f"image-{index}.jpg" for index in range(3)]
+    for image_path in image_paths:
+        make_image(image_path)
+    sleep_calls = []
+    monkeypatch.setattr(source_scanner.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    summary = source_scanner.scan_image_readiness(image_paths, stability_seconds=0.1)
+
+    assert summary["ready"] == image_paths
+    assert sleep_calls == [0.1]
 
 
 def test_scan_ready_images_skips_invalid_images(tmp_path):
@@ -689,7 +710,8 @@ def test_process_source_once_normalizes_source_path(monkeypatch, tmp_path):
         return []
 
     monkeypatch.setattr(session_manager, "Repository", EmptyRepository)
-    monkeypatch.setattr(session_manager, "scan_image_readiness", lambda path: {"ready": fake_scan_images(path), "total": 0, "skipped_unready": 0})
+    monkeypatch.setattr(session_manager, "scan_images", fake_scan_images)
+    monkeypatch.setattr(session_manager, "scan_image_readiness", lambda paths: {"ready": [], "total": 0, "skipped_unready": 0})
 
     model = {"id": "model-1", "selected_task_type": "classification"}
     artifact = {}

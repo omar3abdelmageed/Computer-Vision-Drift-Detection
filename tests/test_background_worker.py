@@ -250,6 +250,7 @@ def test_source_processing_does_not_persist_drift_when_no_new_images(monkeypatch
 
     monkeypatch.setattr(session_processor, "Repository", FakeRepository)
     monkeypatch.setattr(session_processor, "resolve_source_path", lambda raw_path: object())
+    monkeypatch.setattr(session_processor, "scan_images", lambda source_path: [])
     monkeypatch.setattr(session_processor, "scan_image_readiness", lambda source_path: {"ready": [], "total": len(image_rows), "skipped_unready": 0})
     monkeypatch.setattr(session_processor, "calculate_drift_for_window", lambda *args, **kwargs: [object()])
 

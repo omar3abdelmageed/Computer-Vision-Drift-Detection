@@ -15,7 +15,7 @@ from background_worker.data_drift_tests.mmd import feature_vectors, rbf_mmd
 from background_worker.prediction_drift_tests.class_distribution_drift import chi_square_prediction_drift, class_distribution, class_percentages
 from background_worker.image_features import extract_image_features, extract_image_metadata
 from background_worker.inference import run_yolo_inference
-from background_worker.source_scanner import scan_image_readiness
+from background_worker.source_scanner import scan_image_readiness, scan_images
 from core.local_files import resolve_local_path
 from core.types import DriftResult, DriftStatus, DriftType
 from database.repositories import Repository
@@ -100,14 +100,15 @@ def process_source_once(
         return {"processed": 0, "reason": "source_path_missing"}
     if not session_is_running(sessions_repo, session):
         return {"processed": 0, "reason": "session_not_running"}
-    readiness = scan_image_readiness(source_path)
+    source_paths = scan_images(source_path)
+    sampled_paths = sampled_source_paths(source_paths, source_image_stride(source))
+    readiness = scan_image_readiness(sampled_paths)
     paths = readiness["ready"]
-    paths = sampled_source_paths(paths, source_image_stride(source))
     processed = 0
     ready_files = len(readiness["ready"])
-    source_files = int(readiness.get("total") or len(paths))
+    source_files = len(source_paths)
     skipped_unready = int(readiness.get("skipped_unready") or 0)
-    skipped_by_stride = max(0, ready_files - len(paths))
+    skipped_by_stride = max(0, source_files - len(sampled_paths))
     skipped_duplicates = 0
     insert_errors = 0
     inference_errors = 0
